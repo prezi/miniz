@@ -2849,19 +2849,40 @@ void *tdefl_write_image_to_png_file_in_memory(const void *pImage, int w, int h, 
   #include <sys/stat.h>
 
   #if defined(_MSC_VER) || defined(__MINGW64__)
+
+    #define WIN32_LEAN_AND_MEAN
+    #include <Windows.h>
+
+    static WCHAR* mz_utf8z_to_widechar(const char* str)
+    {
+      int reqChars = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
+      WCHAR* wStr = (WCHAR*)malloc(reqChars * sizeof(WCHAR));
+      MultiByteToWideChar(CP_UTF8, 0, str, -1, wStr, sizeof(WCHAR) * reqChars);
+      return wStr;
+    }
+
     static FILE *mz_fopen(const char *pFilename, const char *pMode)
     {
+      WCHAR* wFilename = mz_utf8z_to_widechar(pFilename);
+      WCHAR* wMode = mz_utf8z_to_widechar(pMode);
       FILE* pFile = NULL;
-      fopen_s(&pFile, pFilename, pMode);
-      return pFile;
+      errno_t err = _wfopen_s(&pFile, wFilename, wMode);
+      free(wFilename);
+      free(wMode);
+      return err ? NULL : pFile;
     }
+
     static FILE *mz_freopen(const char *pPath, const char *pMode, FILE *pStream)
     {
+      WCHAR* wPath = mz_utf8z_to_widechar(pPath);
+      WCHAR* wMode = mz_utf8z_to_widechar(pMode);
       FILE* pFile = NULL;
-      if (freopen_s(&pFile, pPath, pMode, pStream))
-        return NULL;
-      return pFile;
+      errno_t err = _wfreopen_s(&pFile, wPath, wMode, pStream);
+      free(wPath);
+      free(wMode);
+      return err ? NULL : pFile;
     }
+
     #ifndef MINIZ_NO_TIME
       #include <sys/utime.h>
     #endif
